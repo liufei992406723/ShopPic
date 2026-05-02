@@ -1,0 +1,80 @@
+name: ShopPic
+
+options:
+  bundleIdPrefix: com.shoppic
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+
+targets:
+  # ============================================================
+  # Main App
+  # ============================================================
+  ShopPic:
+    type: application
+    platform: iOS
+    sources:
+      - path: ShopPic
+        excludes:
+          - "Info.plist"
+      - path: Shared
+    settings:
+      base:
+        INFOPLIST_FILE: ShopPic/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.shoppic.app
+        CODE_SIGN_ENTITLEMENTS: ShopPic.entitlements
+    entitlements:
+      path: ShopPic.entitlements
+    dependencies:
+      - target: ShareExtension
+    postCompileScripts:
+      - name: Embed App Extensions
+        script: |
+          if [ -d "${BUILT_PRODUCTS_DIR}/ShareExtension.appex" ]; then
+            # Xcode handles embedding automatically
+            :
+          fi
+        basedOnDependencyAnalysis: false
+
+  # ============================================================
+  # Share Extension
+  # ============================================================
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+        excludes:
+          - "Info.plist"
+      - path: Shared
+    settings:
+      base:
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.shoppic.app.ShareExtension
+        CODE_SIGN_ENTITLEMENTS: ShareExtension.entitlements
+    entitlements:
+      path: ShareExtension.entitlements
+
+schemes:
+  ShopPic:
+    build:
+      targets:
+        ShopPic: all
+        ShareExtension: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+  ShareExtension:
+    build:
+      targets:
+        ShareExtension: all
+    run:
+      config: Debug
+      executable: ShopPic

@@ -1,0 +1,16 @@
+*.xcworkspace
+*.xcuserdata
+*.xcarchive
+DerivedData/
+build/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+Carthage/Build/
+*.xcodeproj

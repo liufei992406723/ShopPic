@@ -1,0 +1,108 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    # Allows manually triggering from GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Setup signing assets
+        env:
+          BUILD_CERT_BASE64: ${{ secrets.BUILD_CERT_BASE64 }}
+          BUILD_CERT_PASSWORD: ${{ secrets.BUILD_CERT_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+        run: |
+          # Create temp keychain
+          KEYCHAIN_PATH=~/build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+
+          # Import signing certificate
+          echo "$BUILD_CERT_BASE64" | base64 -d > cert.p12
+          security import cert.p12 -k $KEYCHAIN_PATH -P "$BUILD_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Install provisioning profile
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 -d > "$PROFILE_DIR/build.mobileprovision"
+
+          # Allow codesign to access the keychain
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+      - name: Build and Archive
+        run: |
+          xcodebuild archive \
+            -project ShopPic.xcodeproj \
+            -scheme ShopPic \
+            -archivePath ShopPic.xcarchive \
+            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            PROVISIONING_PROFILE_SPECIFIER="ShopPic Development" \
+            OTHER_CODE_SIGN_FLAGS="--keychain ~/build.keychain-db"
+
+      - name: Create ExportOptions.plist
+        run: |
+          cat > ExportOptions.plist << 'PLEXPORT'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>${DEVELOPMENT_TEAM}</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.shoppic.app</key>
+                  <string>ShopPic Development</string>
+                  <key>com.shoppic.app.ShareExtension</key>
+                  <string>ShopPic Development</string>
+              </dict>
+          </dict>
+          </plist>
+          PLEXPORT
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath ShopPic.xcarchive \
+            -exportPath build \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopPic.ipa
+          path: build/*.ipa
+          retention-days: 7
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain ~/build.keychain-db || true

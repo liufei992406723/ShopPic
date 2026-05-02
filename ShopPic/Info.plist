@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>CFBundleURLName</key>
+            <string>com.shoppic.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>shoppic</string>
+            </array>
+        </dict>
+    </array>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>taobao</string>
+        <string>openapp.jd.com</string>
+        <string>pinduoduo</string>
+        <string>snssdk1128</string>
+    </array>
+    <key>UIPasteboardPrivacyAwareUsageDescription</key>
+    <string>ShopPic copies the image to your clipboard so you can paste it into the shopping app for search.</string>
+</dict>
+</plist>
