@@ -33,14 +33,6 @@ targets:
       path: ShopPic.entitlements
     dependencies:
       - target: ShareExtension
-    postCompileScripts:
-      - name: Embed App Extensions
-        script: |
-          if [ -d "${BUILT_PRODUCTS_DIR}/ShareExtension.appex" ]; then
-            # Xcode handles embedding automatically
-            :
-          fi
-        basedOnDependencyAnalysis: false
 
   # ============================================================
   # Share Extension
