@@ -46,12 +46,15 @@ jobs:
           TMP_PROFILE=$(mktemp)
           echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 -d > "$TMP_PROFILE"
 
-          # Extract UUID from profile
-          PROFILE_UUID=$(security cms -D -i "$TMP_PROFILE" 2>/dev/null | plutil -extract UUID raw -o - -)
+          # Decode profile to plist file
+          PROFILE_PLIST=$(mktemp)
+          security cms -D -i "$TMP_PROFILE" > "$PROFILE_PLIST" 2>/dev/null
+
+          # Extract UUID and Name from plist file
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST" 2>/dev/null)
           echo "Profile UUID: $PROFILE_UUID"
 
-          # Extract profile name
-          PROFILE_NAME=$(security cms -D -i "$TMP_PROFILE" 2>/dev/null | plutil -extract Name raw -o - -)
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST" 2>/dev/null)
           echo "Profile Name: $PROFILE_NAME"
 
           # Install with proper UUID filename
@@ -59,6 +62,9 @@ jobs:
 
           # Save name for later steps
           echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+
+          # Cleanup temp plist
+          rm -f "$PROFILE_PLIST"
 
           # Allow codesign to access the keychain
           security find-identity -v -p codesigning $KEYCHAIN_PATH
