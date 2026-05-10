@@ -4,8 +4,8 @@ options:
   bundleIdPrefix: com.shoppic
   deploymentTarget:
     iOS: "16.0"
-  xcodeVersion: "15.4"
-  objectVersion: 56
+  xcodeVersion: "26.0"
+  objectVersion: 60
 
 settings:
   base:
