@@ -40,22 +40,39 @@ jobs:
           security import cert.p12 -k $KEYCHAIN_PATH -P "$BUILD_CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # Install provisioning profile and extract its UUID/name
+          # Install provisioning profile
           PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILE_DIR"
           TMP_PROFILE=$(mktemp)
           echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 -d > "$TMP_PROFILE"
 
-          # Decode profile to plist file
-          PROFILE_PLIST=$(mktemp)
-          security cms -D -i "$TMP_PROFILE" > "$PROFILE_PLIST" 2>/dev/null
+          # Diagnose file type
+          echo "Profile file type:"
+          file "$TMP_PROFILE" || true
 
-          # Extract UUID and Name from plist file
+          # Decode CMS to plain plist using openssl
+          PROFILE_PLIST=$(mktemp)
+          openssl cms -in "$TMP_PROFILE" -inform DER -verify -noverify -out "$PROFILE_PLIST" 2>/dev/null && {
+            echo "=== Decoded with openssl cms ==="
+          } || {
+            echo "openssl cms failed, trying security cms..."
+            security cms -D -i "$TMP_PROFILE" > "$PROFILE_PLIST" 2>&1 || true
+            # Check if it looks like XML plist
+            head -c 200 "$PROFILE_PLIST" || true
+          }
+
+          # Extract UUID and Name
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$PROFILE_PLIST" 2>/dev/null)
           echo "Profile UUID: $PROFILE_UUID"
 
           PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST" 2>/dev/null)
           echo "Profile Name: $PROFILE_NAME"
+
+          if [ -z "$PROFILE_UUID" ]; then
+            echo "ERROR: Could not extract UUID from profile. Dumping raw plist:"
+            head -c 1000 "$PROFILE_PLIST" || true
+            exit 1
+          fi
 
           # Install with proper UUID filename
           mv "$TMP_PROFILE" "$PROFILE_DIR/$PROFILE_UUID.mobileprovision"
